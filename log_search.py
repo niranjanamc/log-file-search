@@ -66,6 +66,11 @@ class LogFileSearchApp:
         self.search_button = tk.Button(self.search_frame, text="Search", command=self.search_patterns)
         self.search_button.pack(side=tk.LEFT)
 
+        # Add case sensitivity toggle button
+        self.case_sensitive = tk.BooleanVar(value=False)
+        self.case_sensitive_button = tk.Checkbutton(self.search_frame, text="Aa", variable=self.case_sensitive)
+        self.case_sensitive_button.pack(side=tk.LEFT)
+
         self.result_text = tk.Text(self.bottom_frame, wrap='word')
         self.result_text.pack(fill=tk.BOTH, expand=1)
         # Bind click event to result_text
@@ -127,7 +132,10 @@ class LogFileSearchApp:
             return
         
         pattern_list = patterns.split('|')
-        compiled_patterns = [re.compile(pattern) for pattern in pattern_list]
+        compiled_patterns = [
+            re.compile(pattern) if self.case_sensitive.get() else re.compile(pattern, re.IGNORECASE)
+            for pattern in pattern_list
+        ]
         
         with open(self.file_path, 'r') as file:
             lines = file.readlines()
