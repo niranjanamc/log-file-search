@@ -1,6 +1,14 @@
 import re
+import json
 import tkinter as tk
 from tkinter import filedialog, messagebox
+
+# Debug macro
+DEBUG = True
+
+def debug_print(message):
+    if DEBUG:
+        print(message)
 
 class LogFileSearchApp:
     def __init__(self, root):
@@ -27,15 +35,24 @@ class LogFileSearchApp:
         self.report_menu = tk.Menu(self.menu_bar, tearoff=0)
         self.menu_bar.add_cascade(label="Report", menu=self.report_menu)
         self.report_menu.add_command(label="Add the selected line to report", command=self.add_line_to_report)
+
+        # Import menu
+        self.import_menu = tk.Menu(self.menu_bar, tearoff=0)
+        self.menu_bar.add_cascade(label="Import", menu=self.import_menu)
+        self.import_menu.add_command(label="JSON Filters", command=self.import_json_filters)
         
-        self.paned_window = tk.PanedWindow(root, orient=tk.VERTICAL)
+        # Adjust layout to prevent overlapping
+        self.paned_window = tk.PanedWindow(root, orient=tk.HORIZONTAL)
         self.paned_window.pack(fill=tk.BOTH, expand=1)
+
+        self.left_pane = tk.PanedWindow(self.paned_window, orient=tk.VERTICAL)
+        self.paned_window.add(self.left_pane)
+
+        self.top_frame = tk.Frame(self.left_pane)
+        self.bottom_frame = tk.Frame(self.left_pane)
         
-        self.top_frame = tk.Frame(self.paned_window)
-        self.bottom_frame = tk.Frame(self.paned_window)
-        
-        self.paned_window.add(self.top_frame)
-        self.paned_window.add(self.bottom_frame)
+        self.left_pane.add(self.top_frame)
+        self.left_pane.add(self.bottom_frame)
         
         self.file_text = tk.Text(self.top_frame, wrap='word', height=20, width=80)
         self.file_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
@@ -54,15 +71,15 @@ class LogFileSearchApp:
         self.pattern_entry.pack(side=tk.LEFT, fill=tk.X, expand=1)
 
         # Start search when Enter key is pressed
-        self.pattern_entry.bind("<Return>", lambda event: self.search_patterns())
+        self.pattern_entry.bind("<Return>", lambda event: self.update_search_patterns())
 
         # Search button moved to the right of the search entry
-        self.search_button = tk.Button(self.search_frame, text="Search", command=self.search_patterns)
+        self.search_button = tk.Button(self.search_frame, text="Search", command=self.update_search_patterns)
         self.search_button.pack(side=tk.LEFT)
 
         # Add case sensitivity toggle button
         self.case_sensitive = tk.BooleanVar(value=False)
-        self.case_sensitive_button = tk.Checkbutton(self.search_frame, text="Aa", variable=self.case_sensitive)
+        self.case_sensitive_button = tk.Checkbutton(self.search_frame, text="Aa", variable=self.case_sensitive, command=self.update_search_patterns)
         self.case_sensitive_button.pack(side=tk.LEFT)
 
         self.result_text = tk.Text(self.bottom_frame, wrap='word')
@@ -71,18 +88,39 @@ class LogFileSearchApp:
         self.result_text.bind("<Button-1>", self.on_result_click)
         
         self.file_path = None
-        
         self.report_file_path = None  # Initialize report file path
 
         # Create a status bar at the bottom to display the file path
         self.status_bar = tk.Label(root, text="", bd=1, relief=tk.SUNKEN, anchor=tk.W)
         self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
+        # Frame for pattern buttons with scrollbar
+        self.pattern_buttons_frame = tk.Frame(self.paned_window, width=200)
+        self.pattern_buttons_frame.pack_propagate(False)  # Prevent frame from resizing
+        self.paned_window.add(self.pattern_buttons_frame)
+
+        self.pattern_buttons_canvas = tk.Canvas(self.pattern_buttons_frame)
+        self.pattern_buttons_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+
+        self.pattern_buttons_scrollbar = tk.Scrollbar(self.pattern_buttons_frame, orient=tk.VERTICAL, command=self.pattern_buttons_canvas.yview)
+        self.pattern_buttons_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.pattern_buttons_canvas.configure(yscrollcommand=self.pattern_buttons_scrollbar.set)
+        self.pattern_buttons_canvas.bind('<Configure>', lambda e: self.pattern_buttons_canvas.configure(scrollregion=self.pattern_buttons_canvas.bbox("all")))
+
+        self.pattern_buttons_inner_frame = tk.Frame(self.pattern_buttons_canvas)
+        self.pattern_buttons_canvas.create_window((0, 0), window=self.pattern_buttons_inner_frame, anchor="nw")
+
+        self.patterns = {}  # Initialize patterns dictionary
+        self.pattern_buttons = {}  # Dictionary to store pattern buttons
+        self.search_patterns_list = []  # Initialize search patterns list
+
     def open_file(self):
         self.file_path = filedialog.askopenfilename(
             filetypes=[("Log files", "*.log"), ("All files", "*.*")]
         )
         if self.file_path:
+            debug_print(f"File selected: {self.file_path}")
             self.display_file_content()
         else:
             # Show error if no file was selected
@@ -103,35 +141,46 @@ class LogFileSearchApp:
 
             # Update status bar with the file path
             self.status_bar.config(text=self.file_path)
+            debug_print(f"File content displayed for: {self.file_path}")
         except Exception as e:
             messagebox.showerror(
                 "Error Opening File", f"An error occurred while opening the file:\n{e}"
             )
-    
-    def search_patterns(self):
-        if not self.file_path:
-            messagebox.showwarning("No File", "Please select a log file first.")
-            return
-        
-        patterns = self.pattern_entry.get()
-        if not patterns:
-            messagebox.showwarning("No Patterns", "Please enter search patterns.")
-            return
-        
-        pattern_list = patterns.split('|')
+            debug_print(f"Error opening file: {e}")
+
+    def update_search_patterns(self):
+        patterns = self.pattern_entry.get().split('|')
+        self.search_patterns_list = []
+
+        # Add patterns from the entry with default color black
+        for pattern in patterns:
+            if pattern:
+                self.search_patterns_list.append((pattern, "black"))
+
+        debug_print(f"Search patterns: {self.search_patterns_list}")
+        self.perform_search()
+
+    def perform_search(self):
         compiled_patterns = [
-            re.compile(pattern) if self.case_sensitive.get() else re.compile(pattern, re.IGNORECASE)
-            for pattern in pattern_list
+            (re.compile(pattern) if self.case_sensitive.get() else re.compile(pattern, re.IGNORECASE), color)
+            for pattern, color in self.search_patterns_list
         ]
         
         with open(self.file_path, 'r') as file:
             lines = file.readlines()
         
-        self.result_text.delete(1.0, tk.END)
+        self.clear_highlights()
+        
         for idx, line in enumerate(lines, start=1):
-            if any(pattern.search(line) for pattern in compiled_patterns):
-                self.result_text.insert(tk.END, f"{idx}: {line}")
-    
+            for pattern, color in compiled_patterns:
+                if pattern.search(line):
+                    self.result_text.insert(tk.END, f"{idx}: {line}")
+                    self.file_text.tag_add(f"highlight_{pattern.pattern}", f"{idx}.0", f"{idx}.0 lineend")
+                    self.file_text.tag_config(f"highlight_{pattern.pattern}", foreground=color)
+        
+        self.file_text.config(state=tk.DISABLED)
+        debug_print("Search completed and results updated.")
+
     def add_line_to_report(self):
         try:
             # Get the selected text from result_text
@@ -155,10 +204,12 @@ class LogFileSearchApp:
         try:
             with open(self.report_file_path, 'a') as report_file:
                 report_file.write(selected_text + '\n')
+            debug_print(f"Added line to report: {selected_text}")
         except Exception as e:
             messagebox.showerror(
                 "Write Error", f"Failed to write to report file:\n{e}"
             )
+            debug_print(f"Error writing to report file: {e}")
 
     def on_result_click(self, event):
         # Remove any existing highlight in result_text
@@ -190,9 +241,89 @@ class LogFileSearchApp:
             self.file_text.tag_config("highlight_file", background="yellow")
             # Disable editing again
             self.file_text.config(state=tk.DISABLED)
+            debug_print(f"Highlighted line {line_number} in main window.")
         else:
             # Do nothing if line number cannot be determined or file is not opened
             pass
+
+    def import_json_filters(self):
+        json_file_path = filedialog.askopenfilename(
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
+        )
+        if not json_file_path:
+            return
+
+        try:
+            with open(json_file_path, 'r') as json_file:
+                self.patterns = json.load(json_file)
+            self.create_pattern_buttons()
+            self.update_main_window_with_patterns()
+            self.pattern_entry.delete(0, tk.END)  # Clear the search bar pattern
+            debug_print(f"Imported JSON filters from: {json_file_path}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load JSON file:\n{e}")
+            debug_print(f"Error loading JSON file: {e}")
+
+    def create_pattern_buttons(self):
+        for widget in self.pattern_buttons_inner_frame.winfo_children():
+            widget.destroy()
+
+        for pattern_name, pattern_info in self.patterns.items():
+            button = tk.Button(
+                self.pattern_buttons_inner_frame, 
+                text=pattern_info['pattern'], 
+                command=lambda p=pattern_info: self.toggle_pattern(p)
+            )
+            button.pack(fill=tk.X)
+            self.pattern_buttons[pattern_info['pattern']] = button
+        debug_print("Pattern buttons created.")
+
+    def toggle_pattern(self, pattern_info):
+        pattern = pattern_info['pattern']
+        color = pattern_info['highlight_color']
+        current_patterns = self.pattern_entry.get().split('|')
+        
+        if pattern in current_patterns:
+            current_patterns.remove(pattern)
+            self.pattern_buttons[pattern].config(bg='SystemButtonFace', fg='black')
+        else:
+            current_patterns.append(pattern)
+            self.pattern_buttons[pattern].config(bg='SystemButtonFace', fg=color)
+        
+        new_patterns = '|'.join(filter(None, current_patterns))  # Remove empty strings
+        self.pattern_entry.delete(0, tk.END)
+        self.pattern_entry.insert(0, new_patterns)
+        self.update_search_patterns()
+        debug_print(f"Toggled pattern: {pattern}, current patterns: {current_patterns}")
+
+    def update_main_window_with_patterns(self):
+        compiled_patterns = [
+            (re.compile(pattern_info['pattern']), pattern_info['highlight_color'])
+            for pattern_info in self.patterns.values()
+        ]
+        
+        with open(self.file_path, 'r') as file:
+            lines = file.readlines()
+        
+        self.file_text.config(state=tk.NORMAL)
+        for idx, line in enumerate(lines, start=1):
+            for pattern, color in compiled_patterns:
+                if pattern.search(line):
+                    self.file_text.tag_add(f"highlight_{pattern.pattern}", f"{idx}.0", f"{idx}.0 lineend")
+                    self.file_text.tag_config(f"highlight_{pattern.pattern}", foreground=color)
+        self.file_text.config(state=tk.DISABLED)
+        debug_print("Main window updated with patterns.")
+
+    def clear_highlights(self):
+        self.file_text.config(state=tk.NORMAL)
+        self.file_text.tag_remove("highlight_file", "1.0", "end")
+        self.result_text.delete(1.0, tk.END)  # Clear the search results window
+        self.file_text.config(state=tk.DISABLED)
+        debug_print("Cleared all highlights.")
+
+# Remove the on_file_drop method since drag and drop is disabled
+# def on_file_drop(self, event):
+#     # ...existing code...
 
 # Use tk.Tk() instead of TkinterDnD.Tk()
 if __name__ == "__main__":
