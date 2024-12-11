@@ -304,7 +304,7 @@ class LogFileSearchApp:
         color = pattern_info['highlight_color']
         current_patterns = self.pattern_entry.get().split('|')
         
-        if pattern in current_patterns:
+        if (pattern in current_patterns):
             current_patterns.remove(pattern)
             self.pattern_buttons[pattern].config(bg='SystemButtonFace', fg='black')
         else:
@@ -364,7 +364,7 @@ class LogFileSearchApp:
         button.pack(fill=tk.X)
         self.pattern_buttons[pattern] = button
         debug_print(f"Added button for pattern: {pattern}")
-        self.pattern_buttons_frame.pack(side=tk.LEFT, fill=tk.Y)
+        # self.pattern_buttons_frame.pack(side=tk.RIGHT, fill=tk.Y)
 
     def export_patterns(self):
         export_file_path = filedialog.asksaveasfilename(
