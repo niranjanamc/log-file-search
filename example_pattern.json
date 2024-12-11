@@ -1,0 +1,14 @@
+{
+    "Error Pattern": {
+        "pattern": "Error",
+        "highlight_color": "red"
+    },
+    "Warning Pattern": {
+        "pattern": "Warning",
+        "highlight_color": "yellow"
+    },
+    "Info Pattern": {
+        "pattern": "Info",
+        "highlight_color": "green"
+    }
+}

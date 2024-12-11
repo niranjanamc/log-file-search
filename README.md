@@ -10,6 +10,8 @@ Log File Search is a Python application that allows users to search for patterns
 - **Highlight Patterns**: Highlight search patterns with specific colors.
 - **Add to Report**: Add selected lines to a report file.
 - **Import JSON Filters**: Import predefined search patterns from a JSON file.
+- **Export Patterns**: Export current search patterns to a JSON file.
+- **Resizable GUI**: Adjust the size of the main window, result window, and pattern buttons frame.
 
 ## Usage
 1. **Open Log File**: Use the "File" menu to open a log file.
@@ -17,7 +19,9 @@ Log File Search is a Python application that allows users to search for patterns
 3. **Case Sensitivity**: Toggle the "Aa" button to enable or disable case-sensitive searches.
 4. **View Results**: The results of the search will be displayed in the bottom text area with the specified highlight colors.
 5. **Add to Report**: Select a line from the results and use the "Report" menu to add the selected line to a report file.
-6. **Import JSON Filters**: Use the "Import" menu to import JSON files containing predefined search patterns and their highlight colors.
+6. **Import JSON Filters**: Use the "Pattern" menu to import JSON files containing predefined search patterns and their highlight colors.
+7. **Export Patterns**: Use the "Pattern" menu to export current search patterns to a JSON file.
+8. **Add New Pattern**: Use the "Pattern" menu to add a new search pattern with a specific highlight color.
 
 ## Requirements
 - Python 3.x

@@ -1,7 +1,7 @@
 import re
 import json
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, simpledialog, colorchooser
 
 # Debug macro
 DEBUG = True
@@ -15,6 +15,9 @@ class LogFileSearchApp:
         self.root = root
         self.root.title("Log File Search")
         
+        # Set application icon
+        self.root.iconbitmap('file_search_icon.ico')  # Ensure 'file_search_icon.ico' is in the same directory
+
         # Create menu bar
         self.menu_bar = tk.Menu(root)
         root.config(menu=self.menu_bar)
@@ -36,10 +39,12 @@ class LogFileSearchApp:
         self.menu_bar.add_cascade(label="Report", menu=self.report_menu)
         self.report_menu.add_command(label="Add the selected line to report", command=self.add_line_to_report)
 
-        # Import menu
-        self.import_menu = tk.Menu(self.menu_bar, tearoff=0)
-        self.menu_bar.add_cascade(label="Import", menu=self.import_menu)
-        self.import_menu.add_command(label="JSON Filters", command=self.import_json_filters)
+        # Pattern menu
+        self.pattern_menu = tk.Menu(self.menu_bar, tearoff=0)
+        self.menu_bar.add_cascade(label="Pattern", menu=self.pattern_menu)
+        self.pattern_menu.add_command(label="Import patterns json", command=self.import_json_filters)
+        self.pattern_menu.add_command(label="New Pattern", command=self.add_new_pattern)
+        self.pattern_menu.add_command(label="Export Patterns", command=self.export_patterns)
         
         # Adjust layout to prevent overlapping
         self.paned_window = tk.PanedWindow(root, orient=tk.HORIZONTAL)
@@ -83,7 +88,10 @@ class LogFileSearchApp:
         self.case_sensitive_button.pack(side=tk.LEFT)
 
         self.result_text = tk.Text(self.bottom_frame, wrap='word')
-        self.result_text.pack(fill=tk.BOTH, expand=1)
+        self.result_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+        self.result_scrollbar = tk.Scrollbar(self.bottom_frame, command=self.result_text.yview)
+        self.result_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.result_text.config(yscrollcommand=self.result_scrollbar.set)
         # Bind click event to result_text
         self.result_text.bind("<Button-1>", self.on_result_click)
         
@@ -95,8 +103,8 @@ class LogFileSearchApp:
         self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
         # Frame for pattern buttons with scrollbar
-        self.pattern_buttons_frame = tk.Frame(self.paned_window, width=200)
-        self.pattern_buttons_frame.pack_propagate(False)  # Prevent frame from resizing
+        self.pattern_buttons_frame = tk.Frame(self.paned_window, width=100)
+        self.pattern_buttons_frame = tk.Frame(self.paned_window)
         self.paned_window.add(self.pattern_buttons_frame)
 
         self.pattern_buttons_canvas = tk.Canvas(self.pattern_buttons_frame)
@@ -115,6 +123,13 @@ class LogFileSearchApp:
         self.pattern_buttons = {}  # Dictionary to store pattern buttons
         self.search_patterns_list = []  # Initialize search patterns list
         self.imported_patterns = {}  # Store imported patterns
+
+        # Add a vertical separator between the left and right panes
+        self.paned_window.add(self.pattern_buttons_frame, stretch="always")
+
+        # Add a horizontal separator between the top and bottom frames
+        self.left_pane.add(self.top_frame, stretch="always")
+        self.left_pane.add(self.bottom_frame, stretch="always")
 
     def open_file(self):
         self.file_path = filedialog.askopenfilename(
@@ -282,6 +297,7 @@ class LogFileSearchApp:
             button.pack(fill=tk.X)
             self.pattern_buttons[pattern_info['pattern']] = button
         debug_print("Pattern buttons created.")
+        #self.pattern_buttons_frame.pack(side=tk.RIGHT, fill=tk.Y)
 
     def toggle_pattern(self, pattern_info):
         pattern = pattern_info['pattern']
@@ -325,6 +341,47 @@ class LogFileSearchApp:
         self.result_text.delete(1.0, tk.END)  # Clear the search results window
         self.file_text.config(state=tk.DISABLED)
         debug_print("Cleared all highlights.")
+
+    def add_new_pattern(self):
+        pattern = simpledialog.askstring("New Pattern", "Enter the pattern:")
+        if not pattern:
+            return
+        color = colorchooser.askcolor(title="Choose highlight color")[1]
+        if not color:
+            return
+
+        self.imported_patterns[pattern] = {'pattern': pattern, 'highlight_color': color}
+        self.create_pattern_buttons()
+        self.add_pattern_button(pattern, color)
+        debug_print(f"Added new pattern: {pattern} with color: {color}")
+
+    def add_pattern_button(self, pattern, color):
+        button = tk.Button(
+            self.pattern_buttons_inner_frame, 
+            text=pattern, 
+            command=lambda p=pattern: self.toggle_pattern({'pattern': p, 'highlight_color': color})
+        )
+        button.pack(fill=tk.X)
+        self.pattern_buttons[pattern] = button
+        debug_print(f"Added button for pattern: {pattern}")
+        self.pattern_buttons_frame.pack(side=tk.LEFT, fill=tk.Y)
+
+    def export_patterns(self):
+        export_file_path = filedialog.asksaveasfilename(
+            defaultextension=".json",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            title="Export Patterns As"
+        )
+        if not export_file_path:
+            return
+
+        try:
+            with open(export_file_path, 'w') as export_file:
+                json.dump(self.imported_patterns, export_file, indent=4)
+            debug_print(f"Exported patterns to: {export_file_path}")
+        except Exception as e:
+            messagebox.showerror("Export Error", f"Failed to export patterns:\n{e}")
+            debug_print(f"Error exporting patterns: {e}")
 
 # Remove the on_file_drop method since drag and drop is disabled
 # def on_file_drop(self, event):
