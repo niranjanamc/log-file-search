@@ -114,6 +114,7 @@ class LogFileSearchApp:
         self.patterns = {}  # Initialize patterns dictionary
         self.pattern_buttons = {}  # Dictionary to store pattern buttons
         self.search_patterns_list = []  # Initialize search patterns list
+        self.imported_patterns = {}  # Store imported patterns
 
     def open_file(self):
         self.file_path = filedialog.askopenfilename(
@@ -152,10 +153,11 @@ class LogFileSearchApp:
         patterns = self.pattern_entry.get().split('|')
         self.search_patterns_list = []
 
-        # Add patterns from the entry with default color black
+        # Add patterns from the entry with respective colors from JSON or default color black
         for pattern in patterns:
             if pattern:
-                self.search_patterns_list.append((pattern, "black"))
+                color = self.imported_patterns.get(pattern, {}).get('highlight_color', 'black')
+                self.search_patterns_list.append((pattern, color))
 
         debug_print(f"Search patterns: {self.search_patterns_list}")
         self.perform_search()
@@ -174,9 +176,11 @@ class LogFileSearchApp:
         for idx, line in enumerate(lines, start=1):
             for pattern, color in compiled_patterns:
                 if pattern.search(line):
-                    self.result_text.insert(tk.END, f"{idx}: {line}")
-                    self.file_text.tag_add(f"highlight_{pattern.pattern}", f"{idx}.0", f"{idx}.0 lineend")
-                    self.file_text.tag_config(f"highlight_{pattern.pattern}", foreground=color)
+                    tag_name = f"highlight_{pattern.pattern}_{idx}"
+                    self.result_text.insert(tk.END, f"{idx}: {line}", (tag_name,))
+                    self.result_text.tag_config(tag_name, foreground=color)
+                    self.file_text.tag_add(tag_name, f"{idx}.0", f"{idx}.0 lineend")
+                    self.file_text.tag_config(tag_name, foreground=color)
         
         self.file_text.config(state=tk.DISABLED)
         debug_print("Search completed and results updated.")
@@ -256,6 +260,7 @@ class LogFileSearchApp:
         try:
             with open(json_file_path, 'r') as json_file:
                 self.patterns = json.load(json_file)
+                self.imported_patterns = {v['pattern']: v for v in self.patterns.values()}  # Store imported patterns
             self.create_pattern_buttons()
             self.update_main_window_with_patterns()
             self.pattern_entry.delete(0, tk.END)  # Clear the search bar pattern
