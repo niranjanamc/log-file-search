@@ -1,8 +1,6 @@
 import re
 import tkinter as tk
 from tkinter import filedialog, messagebox
-# Remove the import of tkinterdnd2
-# from tkinterdnd2 import TkinterDnD, Tk
 
 class LogFileSearchApp:
     def __init__(self, root):
@@ -47,10 +45,6 @@ class LogFileSearchApp:
         self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.file_text.config(yscrollcommand=self.scrollbar.set)
         
-        # Remove the pattern label
-        # self.pattern_label = tk.Label(self.bottom_frame, text="Enter patterns (separated by '|'):")
-        # self.pattern_label.pack()
-
         # Create a frame for the search bar and search button
         self.search_frame = tk.Frame(self.bottom_frame)
         self.search_frame.pack(fill=tk.X)
@@ -77,19 +71,12 @@ class LogFileSearchApp:
         self.result_text.bind("<Button-1>", self.on_result_click)
         
         self.file_path = None
-        # Remove Open Log File button
-        # self.open_file_button = tk.Button(root, text="Open Log File", command=self.open_file)
-        # self.open_file_button.pack()
         
         self.report_file_path = None  # Initialize report file path
 
         # Create a status bar at the bottom to display the file path
         self.status_bar = tk.Label(root, text="", bd=1, relief=tk.SUNKEN, anchor=tk.W)
         self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
-
-        # Remove drag and drop initialization
-        # root.drop_target_register('*')
-        # root.dnd_bind('<<Drop>>', self.on_file_drop)
 
     def open_file(self):
         self.file_path = filedialog.askopenfilename(
@@ -206,10 +193,6 @@ class LogFileSearchApp:
         else:
             # Do nothing if line number cannot be determined or file is not opened
             pass
-
-    # Remove the on_file_drop method since drag and drop is disabled
-    # def on_file_drop(self, event):
-    #     # ...existing code...
 
 # Use tk.Tk() instead of TkinterDnD.Tk()
 if __name__ == "__main__":
