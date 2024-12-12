@@ -1,5 +1,6 @@
 import re
 import json
+import os
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog, colorchooser
 
@@ -15,8 +16,19 @@ class LogFileSearchApp:
         self.root = root
         self.root.title("Log File Search")
         
-        # Set application icon
-        self.root.iconbitmap('file_search_icon.ico')  # Ensure 'file_search_icon.ico' is in the same directory
+        # Set application icon based on the operating system
+        if os.name == 'nt':  # Windows
+            icon_path = 'file_search_icon.ico'
+        else:  # macOS and Linux
+            icon_path = os.path.join(os.path.dirname(__file__), 'file_search_icon.icns')
+        
+        if os.path.exists(icon_path):
+            if os.name == 'nt':
+                self.root.iconbitmap(icon_path)
+            else:
+                self.root.iconphoto(True, tk.PhotoImage(file=icon_path))
+        else:
+            debug_print(f"Icon file not found: {icon_path}")
 
         # Create menu bar
         self.menu_bar = tk.Menu(root)
